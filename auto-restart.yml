@@ -1,0 +1,24 @@
+name: 🔄 Auto Restart Trigger
+
+on:
+  # Chạy mỗi 4 giờ để tự trigger lại keepalive nếu bị dừng
+  schedule:
+    - cron: '0 */4 * * *'
+
+  workflow_dispatch:
+
+jobs:
+  trigger-keepalive:
+    name: 🔄 Trigger KeepAlive Workflow
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔄 Re-trigger keepalive workflow
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: keepalive.yml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          inputs: '{"run_script": "no"}'

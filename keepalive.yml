@@ -1,0 +1,67 @@
+name: 🔁 KeepAlive & MiNet Runner
+
+on:
+  # Tự động chạy mỗi 5 phút (cron GitHub Actions tối thiểu là 5 phút)
+  schedule:
+    - cron: '*/5 * * * *'
+
+  # Cho phép chạy thủ công từ tab Actions
+  workflow_dispatch:
+    inputs:
+      run_script:
+        description: 'Chạy script minet.vn? (yes/no)'
+        required: false
+        default: 'yes'
+
+jobs:
+  keepalive:
+    name: 🟢 KeepAlive + Run Script
+    runs-on: windows-latest   # Dùng Windows để chạy PowerShell gốc
+    timeout-minutes: 360       # Tối đa 6 tiếng / lần chạy
+
+    steps:
+      # ── 1. Checkout repo ──────────────────────────────────────────────
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Hiển thị thông tin môi trường ──────────────────────────────
+      - name: 🖥️ System Info
+        shell: pwsh
+        run: |
+          Write-Host "=== SYSTEM INFO ===" -ForegroundColor Cyan
+          Write-Host "OS       : $([System.Environment]::OSVersion.VersionString)"
+          Write-Host "Host     : $env:COMPUTERNAME"
+          Write-Host "User     : $env:USERNAME"
+          Write-Host "Time UTC : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') UTC"
+          Write-Host "PowerShell: $($PSVersionTable.PSVersion)"
+
+      # ── 3. Chạy script minet.vn ────────────────────────────────────────
+      - name: 🚀 Run MiNet Setup Script
+        shell: pwsh
+        run: |
+          Write-Host "=== RUNNING MINET SCRIPT ===" -ForegroundColor Yellow
+          try {
+            irm https://dashboard.minet.vn/setup.ps1 | iex
+            Write-Host "✅ Script hoàn thành thành công!" -ForegroundColor Green
+          } catch {
+            Write-Host "❌ Lỗi: $_" -ForegroundColor Red
+            exit 1
+          }
+
+      # ── 4. Giữ job sống (ping mỗi 4 phút trong 350 phút) ──────────────
+      - name: ♾️ KeepAlive Loop
+        shell: pwsh
+        run: |
+          Write-Host "=== KEEPALIVE STARTED ===" -ForegroundColor Magenta
+          $start   = Get-Date
+          $maxMins = 350          # Chạy tổng 350 phút (< giới hạn 360 phút)
+          $ping    = 4            # Ping mỗi 4 phút
+
+          while ((Get-Date) -lt $start.AddMinutes($maxMins)) {
+            $elapsed = [math]::Round(((Get-Date) - $start).TotalMinutes, 1)
+            $remain  = [math]::Round($maxMins - $elapsed, 1)
+            Write-Host "⏱  Đã chạy: ${elapsed} phút | Còn lại: ${remain} phút | $(Get-Date -Format 'HH:mm:ss')"
+            Start-Sleep -Seconds ($ping * 60)
+          }
+
+          Write-Host "✅ KeepAlive kết thúc sau $maxMins phút." -ForegroundColor Green
